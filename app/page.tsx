@@ -8,7 +8,6 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Video, Mic, MessageSquare, Share, Upload, MoreVertical, Settings, Download, Users } from "lucide-react"
 
 export default function VideoConference() {
-  const [activeTab, setActiveTab] = useState("screen")
   const [isSharingScreen, setIsSharingScreen] = useState(false)
 
   const handleShareScreen = () => {
@@ -18,7 +17,7 @@ export default function VideoConference() {
   return (
     <div className="flex flex-col min-h-screen bg-gradient-to-br from-purple-900 to-purple-700">
       {/* Header */}
-      <header className="p-4 flex items-center justify-between">
+      <header className="p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex flex-col text-white">
           <h1 className="text-xl font-bold">AI Strategy Meeting</h1>
           <p className="text-sm opacity-80">Duration: 45:23</p>
@@ -32,10 +31,10 @@ export default function VideoConference() {
           </Button>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="rounded-full bg-white/10 text-white">
+          <Button variant="ghost" size="icon" className="rounded-full bg-white/10 text-white" aria-label="Download recording">
             <Download className="h-5 w-5" />
           </Button>
-          <Button variant="ghost" size="icon" className="rounded-full bg-white/10 text-white">
+          <Button variant="ghost" size="icon" className="rounded-full bg-white/10 text-white" aria-label="Settings">
             <Settings className="h-5 w-5" />
           </Button>
         </div>
@@ -43,7 +42,7 @@ export default function VideoConference() {
 
       {/* Main content */}
       <main className="flex-1 p-4 flex flex-col">
-        <div className="flex-1 grid grid-cols-4 gap-4 relative">
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 relative">
           {/* Participants */}
           <Card className="col-span-1 bg-purple-800/50 border-purple-600 text-white">
             <CardContent className="p-4">
@@ -57,7 +56,7 @@ export default function VideoConference() {
                   <p className="text-xs opacity-80">Data Analyst</p>
                   <div className="text-xs mt-1 bg-purple-700 rounded px-2 py-0.5 inline-block">Grade 3</div>
                 </div>
-                <Button variant="ghost" size="icon" className="ml-auto">
+                <Button variant="ghost" size="icon" className="ml-auto" aria-label="More options">
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </div>
@@ -66,7 +65,7 @@ export default function VideoConference() {
           </Card>
 
           {/* Main screen */}
-          <Card className="col-span-2 row-span-2 bg-purple-800/30 border-purple-600 flex items-center justify-center relative">
+          <Card className="col-span-1 md:col-span-2 lg:col-span-2 row-span-1 md:row-span-2 bg-purple-800/30 border-purple-600 flex items-center justify-center relative">
             <CardContent className="p-0 w-full h-full flex items-center justify-center">
               {isSharingScreen ? (
                 <div className="w-full h-full p-6">
@@ -124,7 +123,7 @@ export default function VideoConference() {
                     </span>
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" className="ml-4 text-white">
+                <Button variant="ghost" size="icon" className="ml-4 text-white" aria-label="More options">
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </div>
@@ -143,7 +142,7 @@ export default function VideoConference() {
                   <p className="text-xs opacity-80">Meeting Facilitator</p>
                   <div className="text-xs mt-1 bg-purple-700 rounded px-2 py-0.5 inline-block">GPT-4</div>
                 </div>
-                <Button variant="ghost" size="icon" className="ml-auto">
+                <Button variant="ghost" size="icon" className="ml-auto" aria-label="More options">
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </div>
@@ -162,7 +161,7 @@ export default function VideoConference() {
                   <h3 className="font-medium">John Smith</h3>
                   <p className="text-xs opacity-80">Developer</p>
                 </div>
-                <Button variant="ghost" size="icon" className="ml-auto">
+                <Button variant="ghost" size="icon" className="ml-auto" aria-label="More options">
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </div>
@@ -179,7 +178,7 @@ export default function VideoConference() {
 
       {/* Footer controls */}
       <footer className="p-4 flex justify-center">
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4 justify-center">
           <Button variant="outline" className="bg-purple-800/50 border-purple-600 text-white hover:bg-purple-700 px-6">
             <Video className="h-5 w-5 mr-2" />
             Video
