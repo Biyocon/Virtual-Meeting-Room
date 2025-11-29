@@ -23,6 +23,7 @@ You are an expert Next.js 15 + TypeScript + Tailwind + shadcn/ui engineer and pr
 1) Project intent
 - Build a production-ready module for AI-assisted virtual meetings: LiveKit/WebRTC video, realtime transcription (Whisper/Gemini), AI insights (key points, decisions, action items, risks, sentiment), collaboration (chat, notes, whiteboard, document co-edit), and auto-generated summaries/exports.
 - Keep the current visual language: purple gradient background, card-based participants, main stage with share/upload/canvas tabs, active-speaker overlay, and bottom controls for video/audio/chat.
+- Recreate the tabletop meeting view from the design reference: a central desk surface containing the shared screen/document card, surrounded by participant cards (humans and AIs) positioned around the table. Keep spacing, labels, and badges but maintain the repository's existing purple theme (do not import the reference theme colors).
 
 2) Tech stack & hosting
 - Next.js 15 App Router + TypeScript + Tailwind + shadcn/ui + lucide-react + recharts.
@@ -36,9 +37,10 @@ You are an expert Next.js 15 + TypeScript + Tailwind + shadcn/ui engineer and pr
 - /meetings/[id]/lobby (device check, mic/cam meters, language for transcription)
 - /meetings/[id]/live (video grid layouts: gallery/speaker/presentation; bottom controls: mute, cam, share, leave; sidebar tabs: Participants, Chat, Notes, Whiteboard; transcript strip at bottom with speaker labels and timestamps; right AI Insights overlay)
 - /meetings/[id]/summary (auto summary, action items, decisions, sentiment chart; export PDF/MD; sync buttons)
-- /meetings/recordings (list + player + transcript jumping)
-- /meetings/analytics (Recharts KPIs: speaking time, engagement, follow-up rate)
-- App shell with header (search/notifications/profile) + sidebar nav (Dashboard/Meetings/Workspace/Projects/Settings with badges).
+ - /meetings/recordings (list + player + transcript jumping)
+ - /meetings/analytics (Recharts KPIs: speaking time, engagement, follow-up rate)
+ - /agents (Custom Agent hub): create multiple AI agents with name, model, role/responsibility, and custom instructions; attach agents to meetings with access to the knowledge/RAG context.
+ - App shell with header (search/notifications/profile) + sidebar nav (Dashboard/Meetings/Workspace/Projects/Settings with badges).
 
 4) Integrations
 - Microsoft Teams sync: webhook/Graph API to push summaries, action items, meeting links, and calendar updates; allow joining via Teams invite and sync attendance where permitted.
@@ -50,6 +52,7 @@ You are an expert Next.js 15 + TypeScript + Tailwind + shadcn/ui engineer and pr
 - Transcription pipeline: client audio -> websocket bridge -> streaming transcripts with punctuation + speaker detection; batch to AI model for insights (key_points, decisions, action_items, open_questions, risks, sentiment). Update UI live; finalize full report at end.
 - Semantic history: embed transcript + notes; allow retrieval for new meetings.
 - Collaboration sync: Chat/Notes/Whiteboard via realtime subscriptions with CRDT/OT; offline queue + background sync.
+- Custom agents: /agents page manages AI participants with names, roles/responsibilities, models (e.g., GPT-4, Claude, Gemini), and custom instructions; agents can join meetings, access the knowledge/RAG context, and output role-aligned actions/notes.
 
 6) Data models (example tables/collections)
 - meetings { id, title, agenda, startAt, language, hostId, participantIds[], recording: bool, status }
@@ -59,6 +62,8 @@ You are an expert Next.js 15 + TypeScript + Tailwind + shadcn/ui engineer and pr
 - notes { meetingId, noteId, authorId, contentMD, ts, mode }
 - recordings { id, meetingId, storagePath, duration, size, createdAt }
 - analytics { meetingId, speakingTimeByUser, engagementIndex, followUpRate }
+ - agents { id, name, role, responsibilities, instructions, model, knowledgeScopes[], createdBy }
+ - meeting_agents { meetingId, agentId, permissions, joinedAt }
 - users { id, displayName, role, teams[], preferences, locales }
 
 7) Security, compliance, UX
@@ -66,6 +71,7 @@ You are an expert Next.js 15 + TypeScript + Tailwind + shadcn/ui engineer and pr
 - GDPR: consent prompts for recording/transcription; retention + export/delete flows.
 - Accessibility: WCAG 2.1 AA, ARIA labels, keyboard navigation.
 - Offline: top banner indicator, skeletons, retry toasts.
+- Preserve the tabletop meeting layout: central stage card on a desk surface with participant cards arranged around it (humans and AI) showing avatars, roles, and status badges. Bottom controls stay aligned over the gradient background.
 
 8) Delivery expectations
 - Implement pages, components, hooks, and services wired to the data/AI flows.
@@ -97,6 +103,7 @@ Always:
 - Use Next.js 15 + TypeScript + Tailwind + shadcn/ui + lucide-react, matching the existing gradient/card UI in `app/page.tsx`.
 - Preserve routes and flows: /meetings/new, /meetings/[id]/lobby, /meetings/[id]/live (video grid, transcript strip, AI insights overlay, sidebar tabs for Chat/Participants/Notes/Whiteboard), /meetings/[id]/summary, /meetings/recordings, /meetings/analytics.
 - Implement LiveKit join/screen share/recording, streaming transcription (Whisper/Gemini), AI insights (key points, decisions, action items, sentiment), and exports.
+- Mirror the tabletop meeting layout from the reference: central stage card inside a desk surface with participant cards arranged around it; keep current purple theme. Include the participants dialog (human count + AI participants with name/model/role selectors and add/remove actions) and the meetings landing page tiles (Meetings, AI Agents, Calendar) with upcoming/past lists and Join buttons.
 - Wire Microsoft Teams Graph + Google Calendar/Meet/Drive for scheduling, attendance, and export sync with user-consent toggles.
 - Enforce security: RBAC/RLS, signed URLs for recordings, GDPR consent for recording/transcription, audit logs.
 - Keep accessibility (WCAG 2.1 AA, ARIA, keyboard nav) and offline UI (banner + skeleton + retries).
