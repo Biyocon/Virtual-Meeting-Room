@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://biyocon.dev/schemas/agent-event.schema.json",
+  "title": "Agent Event Contract",
+  "description": "Language-neutral mirror of lib/agent/contract.ts. The future Python sidecar (ADR-0005) validates against this. scripts/agent-contract.test.mjs fails on drift between this file and the TS contract.",
+  "definitions": {
+    "agentStatus": { "enum": ["idle", "listening", "thinking", "speaking"] },
+    "envelope": {
+      "type": "object",
+      "required": ["type", "meetingId", "ts", "correlationId", "payload"],
+      "properties": {
+        "type": { "type": "string" },
+        "meetingId": { "type": "string", "minLength": 1 },
+        "agentInstanceId": { "type": "string", "minLength": 1 },
+        "ts": { "type": "string", "minLength": 1 },
+        "correlationId": { "type": "string", "minLength": 1 }
+      }
+    },
+    "knowledgeRef": {
+      "type": "object",
+      "required": ["sourceId"],
+      "properties": {
+        "sourceId": { "type": "string" },
+        "label": { "type": "string" },
+        "locator": { "type": "string" }
+      }
+    }
+  },
+  "eventTypes": [
+    "agent.status",
+    "agent.message.delta",
+    "agent.message.final",
+    "agent.audio",
+    "agent.action",
+    "agent.tool.approval_request",
+    "meeting.summary",
+    "audit.event"
+  ],
+  "commandTypes": [
+    "agent.add",
+    "agent.respond",
+    "knowledgeScope.set",
+    "tool.approve"
+  ],
+  "payloads": {
+    "agent.status": { "required": ["status"], "properties": { "status": { "$ref": "#/definitions/agentStatus" } } },
+    "agent.message.delta": { "required": ["text"], "properties": { "text": { "type": "string" } } },
+    "agent.message.final": {
+      "required": ["text"],
+      "properties": {
+        "text": { "type": "string" },
+        "citations": { "type": "array", "items": { "$ref": "#/definitions/knowledgeRef" } }
+      }
+    },
+    "agent.audio": { "required": ["format"], "properties": { "audioUrl": { "type": "string" }, "chunk": { "type": "string" }, "format": { "type": "string" } } },
+    "agent.action": { "required": ["kind", "data"], "properties": { "kind": { "enum": ["decision", "action_item"] } } },
+    "agent.tool.approval_request": { "required": ["toolId", "args", "reason"] },
+    "meeting.summary": { "required": ["summary", "decisions", "actionItems"] },
+    "audit.event": { "required": ["actor", "action"], "properties": { "actor": { "type": "string" }, "action": { "type": "string" }, "target": { "type": "string" } } }
+  }
+}
