@@ -13,7 +13,26 @@ export interface AgentRuntime {
 
 import { stubRuntime } from "./stub"
 
+function httpSidecarRuntime(baseUrl: string): AgentRuntime {
+  return {
+    async respond(command: AgentCommand) {
+      const res = await fetch(`${baseUrl}/agent/respond`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(command),
+      })
+      if (res.status !== 202) {
+        throw new Error(
+          `Sidecar respond failed: ${res.status} ${await res.text()}`
+        )
+      }
+    },
+  }
+}
+
 export function getAgentRuntime(): AgentRuntime {
-  // M2: return httpSidecarRuntime(process.env.AGENT_SIDECAR_URL) instead.
-  return stubRuntime
+  const sidecarUrl = process.env.NEXT_PUBLIC_AGENT_SIDECAR_URL
+  return sidecarUrl
+    ? httpSidecarRuntime(sidecarUrl)
+    : stubRuntime
 }
