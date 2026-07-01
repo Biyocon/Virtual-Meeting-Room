@@ -9,7 +9,6 @@ import json
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import AsyncGenerator, Literal, Union
-from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -188,6 +187,104 @@ AgentEvent = Union[
 ]
 
 
+# ── Meeting bus (dev-only, in-process — mirrors lib/agent/bus.ts) ─────────
+
+HEARTBEAT_SECONDS = 15.0
+DELTA_DELAY_SECONDS = 0.15
+
+
+class MeetingBus:
+    """Per-meeting fan-out of AgentEvents to SSE subscribers.
+
+    Single-process seam like the TS bus; swap point for Redis/NATS when the
+    sidecar goes multi-process (post-M2).
+    """
+
+    def __init__(self) -> None:
+        self._subscribers: dict[str, set[asyncio.Queue]] = {}
+
+    def subscribe(self, meeting_id: str) -> asyncio.Queue:
+        queue: asyncio.Queue = asyncio.Queue()
+        self._subscribers.setdefault(meeting_id, set()).add(queue)
+        return queue
+
+    def unsubscribe(self, meeting_id: str, queue: asyncio.Queue) -> None:
+        subscribers = self._subscribers.get(meeting_id)
+        if subscribers is None:
+            return
+        subscribers.discard(queue)
+        if not subscribers:
+            del self._subscribers[meeting_id]
+
+    async def publish(self, meeting_id: str, event: "AgentEvent") -> None:
+        for queue in self._subscribers.get(meeting_id, ()):
+            queue.put_nowait(event)
+
+
+bus = MeetingBus()
+
+# Keep strong refs to in-flight respond sequences (create_task is weakly held).
+_background_tasks: set[asyncio.Task] = set()
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+async def run_respond_sequence(cmd: AgentRespondCommand) -> None:
+    """Emit the synthetic respond sequence for ONE command.
+
+    IDs come from the command — never generated here. Real inference replaces
+    the canned deltas in M3+; the event choreography stays.
+    """
+    meeting_id = cmd.scope.meetingId
+    agent_id = cmd.payload.agentInstanceId
+    corr_id = cmd.correlationId
+
+    def status_event(value: str) -> AgentStatusEvent:
+        return AgentStatusEvent(
+            type="agent.status",
+            meetingId=meeting_id,
+            agentInstanceId=agent_id,
+            ts=_now(),
+            correlationId=corr_id,
+            payload=AgentStatusPayload(status=value),
+        )
+
+    deltas = ["Hello", " from", " Python", " sidecar"]
+
+    await bus.publish(meeting_id, status_event("thinking"))
+    await asyncio.sleep(DELTA_DELAY_SECONDS)
+    for text in deltas:
+        await bus.publish(
+            meeting_id,
+            AgentMessageDeltaEvent(
+                type="agent.message.delta",
+                meetingId=meeting_id,
+                agentInstanceId=agent_id,
+                ts=_now(),
+                correlationId=corr_id,
+                payload=AgentMessageDeltaPayload(text=text),
+            ),
+        )
+        await asyncio.sleep(DELTA_DELAY_SECONDS)
+    await bus.publish(meeting_id, status_event("speaking"))
+    await bus.publish(
+        meeting_id,
+        AgentMessageFinalEvent(
+            type="agent.message.final",
+            meetingId=meeting_id,
+            agentInstanceId=agent_id,
+            ts=_now(),
+            correlationId=corr_id,
+            payload=AgentMessageFinalPayload(
+                text="".join(deltas), citations=None
+            ),
+        ),
+    )
+    await bus.publish(meeting_id, status_event("idle"))
+
+
 # ── Lifespan ──────────────────────────────────────────────────────────────
 
 
@@ -253,8 +350,15 @@ async def agent_respond(cmd: dict) -> dict[str, str]:
             f"[sidecar] audit.event: correlationId={correlation_id} "
             f"action={parsed.type} meetingId={scope.meetingId}"
         )
+        await bus.publish(scope.meetingId, audit_event)
 
-        # TODO M3+: enqueue command, trigger model inference, stream events
+        # agent.respond drives the event stream (M2 DoD); other command
+        # types are audited only until their runtimes exist (M3+).
+        if isinstance(parsed, AgentRespondCommand):
+            task = asyncio.create_task(run_respond_sequence(parsed))
+            _background_tasks.add(task)
+            task.add_done_callback(_background_tasks.discard)
+
         return {"correlationId": correlation_id}
 
     except Exception as e:
@@ -267,92 +371,28 @@ async def agent_respond(cmd: dict) -> dict[str, str]:
 @app.get("/agent/events/{meeting_id}")
 async def agent_events_stream(meeting_id: str) -> StreamingResponse:
     """
-    UI → Sidecar: SSE stream of agent events (meeting-scoped).
+    UI/BFF → Sidecar: SSE stream of agent events (meeting-scoped).
 
-    Stub implementation: emits synthetic sequence matching lib/agent/stub.ts
-    for M0→M2 verification. Real events (M3+) come from model/TTS/RAG.
+    Subscribes to the meeting bus: events appear only when commands drive
+    them (POST /agent/respond). Nothing is replayed on reconnect. Heartbeat
+    comment every HEARTBEAT_SECONDS keeps proxies from closing the stream.
     """
+    queue = bus.subscribe(meeting_id)
 
     async def event_generator() -> AsyncGenerator[str, None]:
-        """Generate SSE events for the meeting (stub sequence)."""
-        agent_id = "agent-0"
-        corr_id = str(uuid4())
-
-        # Stub sequence (mirrors lib/agent/stub.ts for testing)
-        events: list[AgentEvent] = [
-            AgentStatusEvent(
-                type="agent.status",
-                meetingId=meeting_id,
-                agentInstanceId=agent_id,
-                ts=datetime.now(timezone.utc).isoformat(),
-                correlationId=corr_id,
-                payload=AgentStatusPayload(status="thinking"),
-            ),
-            AgentMessageDeltaEvent(
-                type="agent.message.delta",
-                meetingId=meeting_id,
-                agentInstanceId=agent_id,
-                ts=datetime.now(timezone.utc).isoformat(),
-                correlationId=corr_id,
-                payload=AgentMessageDeltaPayload(text="Hello"),
-            ),
-            AgentMessageDeltaEvent(
-                type="agent.message.delta",
-                meetingId=meeting_id,
-                agentInstanceId=agent_id,
-                ts=datetime.now(timezone.utc).isoformat(),
-                correlationId=corr_id,
-                payload=AgentMessageDeltaPayload(text=" from"),
-            ),
-            AgentMessageDeltaEvent(
-                type="agent.message.delta",
-                meetingId=meeting_id,
-                agentInstanceId=agent_id,
-                ts=datetime.now(timezone.utc).isoformat(),
-                correlationId=corr_id,
-                payload=AgentMessageDeltaPayload(text=" Python"),
-            ),
-            AgentMessageDeltaEvent(
-                type="agent.message.delta",
-                meetingId=meeting_id,
-                agentInstanceId=agent_id,
-                ts=datetime.now(timezone.utc).isoformat(),
-                correlationId=corr_id,
-                payload=AgentMessageDeltaPayload(text=" sidecar"),
-            ),
-            AgentStatusEvent(
-                type="agent.status",
-                meetingId=meeting_id,
-                agentInstanceId=agent_id,
-                ts=datetime.now(timezone.utc).isoformat(),
-                correlationId=corr_id,
-                payload=AgentStatusPayload(status="speaking"),
-            ),
-            AgentMessageFinalEvent(
-                type="agent.message.final",
-                meetingId=meeting_id,
-                agentInstanceId=agent_id,
-                ts=datetime.now(timezone.utc).isoformat(),
-                correlationId=corr_id,
-                payload=AgentMessageFinalPayload(
-                    text="Hello from Python sidecar",
-                    citations=None,
-                ),
-            ),
-            AgentStatusEvent(
-                type="agent.status",
-                meetingId=meeting_id,
-                agentInstanceId=agent_id,
-                ts=datetime.now(timezone.utc).isoformat(),
-                correlationId=corr_id,
-                payload=AgentStatusPayload(status="idle"),
-            ),
-        ]
-
-        for event in events:
-            data = event.model_dump_json()
-            yield f"data: {data}\n\n"
-            await asyncio.sleep(0.5)
+        try:
+            yield "retry: 3000\n\n"
+            while True:
+                try:
+                    event = await asyncio.wait_for(
+                        queue.get(), timeout=HEARTBEAT_SECONDS
+                    )
+                except asyncio.TimeoutError:
+                    yield ": heartbeat\n\n"
+                    continue
+                yield f"data: {event.model_dump_json()}\n\n"
+        finally:
+            bus.unsubscribe(meeting_id, queue)
 
     return StreamingResponse(
         event_generator(), media_type="text/event-stream"
