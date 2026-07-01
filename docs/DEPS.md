@@ -1,5 +1,5 @@
 # Dependency Map: Virtual Meeting Room (VMR)
-**Opdateret:** 2026-07-01
+**Opdateret:** 2026-07-02
 **Ref:** `docs/KØREPLAN.md` | `docs/PRD.md` | `docs/adr/0001–0006`
 
 <!--
@@ -56,14 +56,15 @@ Begge stier konvergerer ved M8. **Alt går gennem M2 — færdiggørelse af M2 e
 
 | Ticket | Blokeres af | Blokerer | Note |
 |--------|-------------|----------|------|
-| #1: Sidecar respond→events-kobling | _(ingen)_ | #2, #3, M2-gate | Kernen i DoD; sidecar-intern meeting-scoped bus |
-| #2: BFF SSE-proxy | #1 | #3, #5, M2-gate | UI må ikke ændres — proxy bag eksisterende endpoint |
-| #3: agentInstanceId/correlationId propagation | #1, #2 | M2-gate | Fjern hardcoded `agent-0` |
-| #4: CI (test:contract + pytest) | _(ingen)_ | M2-gate, gæld #8 | Isoleret — kan starte NU parallelt med #1 |
-| #5: Owner-scoping på events | #2 | M2-gate | Testplan §6 scoping-test |
-| #6: AgentProfile-loader + contracts.py | #1 | M3-1, M4-1, M5-1 | Struktur pr. stage-3 §5; kan starte efter #1 |
-| #7 (draft): Tabletop-integration af AgentCard | M2-gate | M6-UI | Bevidst udskudt — demo er nok til M2-verifikation |
-| #8 (draft): Tværgående gæld | #4 (CI først) | _(ingen)_ | ignoreBuildErrors må først fjernes når CI fanger fejl |
+| #1 ✅ 2026-07-02 | — | — | MeetingBus + kommando-drevet sekvens; done |
+| #2 ✅ 2026-07-02 | — | — | Frame-atomisk BFF-proxy; done |
+| #3 ✅ 2026-07-02 | — | — | E2E-verificeret; ingen `agent-0`; done |
+| #4 ✅ 2026-07-02 | — | — | CI grøn (contract+tsc+build+pytest); done |
+| #5: Owner-scoping på events | _(ingen — #2 done)_ | #9 (M2-gate) | Testplan §6 scoping-test; kan starte NU |
+| #6: AgentProfile-loader + contracts.py | _(ingen — #1 done)_ | #9, M3-1, M4-1, M5-1 | Struktur pr. stage-3 §5; kan starte NU ∥ #5 |
+| #9 (draft): M2-gate qa-release-tjek | #5, #6 | M3, M4 | Visuel /agent-demo-verifikation + docs/qa/-tjek |
+| #7 (draft): Tabletop-integration af AgentCard | #9 (M2-gate) | M6-UI | Bevidst udskudt — demo er nok til M2-verifikation |
+| #8 (draft): Tværgående gæld | _(ingen — #4 done)_ | _(ingen)_ | tsc REN → ignoreBuildErrors kan fjernes straks |
 
 ---
 
@@ -71,17 +72,15 @@ Begge stier konvergerer ved M8. **Alt går gennem M2 — færdiggørelse af M2 e
 
 | Parallel gruppe | Forudsætning | Gevinst |
 |-----------------|--------------|---------|
-| **#1 ∥ #4** | _(ingen)_ | CI-gate klar samtidig med kernearbejdet |
-| **#5 ∥ #3** | #2 done | Scoping og ID-propagation rører forskellige lag |
-| **M3 ∥ M4** | M2 done | Uafhængige Azure-integrationer |
+| **#5 ∥ #6** | ✅ opfyldt (#1, #2 done) | Sidste to M2-tickets rører forskellige lag |
+| **M3 ∥ M4** | M2 done (#9 passeret) | Uafhængige Azure-integrationer |
 | **M6 ∥ M7** | (M3+M4) ∥ M5 | Separate blokerings-stier |
 
 **Anbefalet rækkefølge i praksis:**
-1. Start #1 og #4 parallelt (i dag)
-2. #2 når #1 er done → #3 og #5 parallelt
-3. #6 parallelt med #2/#3 (efter #1)
-4. M2-gate: alle tickets ✅ + qa-release-tjek → start M3 ∥ M4
-5. M5 når M2 done → M7; M6 når M3+M4 done
+1. ~~#1 ∥ #4~~ ✅ · ~~#2 → #3~~ ✅ (2026-07-02)
+2. Start #5 og #6 parallelt (næste)
+3. #9 M2-gate: qa-release-tjek → merge PR #5 → start M3 ∥ M4
+4. M5 når M2 done → M7; M6 når M3+M4 done
 
 ---
 
@@ -89,7 +88,6 @@ Begge stier konvergerer ved M8. **Alt går gennem M2 — færdiggørelse af M2 e
 
 Uden afhængigheder til aktive milestones — prioritér ved ledig kapacitet:
 
-- **#4 CI-pipeline** — ingen deps; størst risikoreduktion pr. time
 - **Avatar-portræt-sæt** (illustreret stil, `docs/design/avatar-style-spec.md`) — kan commissioneres straks
 - **LICENSE-afklaring** (ADR-0001) — ren beslutning, ingen kode
 - **Legal review** (GDPR + syntetisk stemme EU) — afventer juridisk ressource

@@ -1,7 +1,7 @@
 # Plan: M2 Sidecar v0 — swap uden UI-ændring
 **Oprettet:** 2026-07-01
 **Ref:** `docs/active/#1` `#2` `#3` | `docs/PRD.md §4 P0` | `docs/architecture/stage-3-build-execution-plan.md` §4–§5
-**Status:** DESIGN
+**Status:** IMPLEMENTERET (trin 1–4, 2026-07-02) — trin 5–6 (#5, #6) + gate udestår
 
 <!--
 Skrives ÉN GANG, læses FØR implementering starter.
@@ -91,8 +91,8 @@ class MeetingBus:
 
 ## Definition of done
 
-- [ ] `/agent-demo` kører fuld sekvens mod sidecar; `git diff hooks/ components/` tom
-- [ ] Stub-mode (uden env-var) uændret
-- [ ] `pnpm test:contract` + pytest grønne i CI
+- [x] `/agent-demo`-endpoints kører fuld sekvens mod sidecar (curl-E2E); `git diff hooks/ components/` tom
+- [x] Stub-mode (uden env-var) uændret
+- [x] `pnpm test:contract` + pytest grønne i CI
 - [ ] Scoping-test: forkert tenantId → 403
 - [ ] `docs/qa/`-release-tjek udfyldt og GODKENDT
