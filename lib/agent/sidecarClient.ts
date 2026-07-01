@@ -30,8 +30,17 @@ function httpSidecarRuntime(baseUrl: string): AgentRuntime {
   }
 }
 
+// Server-only setting. AGENT_SIDECAR_URL is canonical; the NEXT_PUBLIC_
+// fallback survives until #8 retires it (it needlessly inlines the URL
+// into the client bundle).
+export function getSidecarBaseUrl(): string | undefined {
+  return (
+    process.env.AGENT_SIDECAR_URL ?? process.env.NEXT_PUBLIC_AGENT_SIDECAR_URL
+  )
+}
+
 export function getAgentRuntime(): AgentRuntime {
-  const sidecarUrl = process.env.NEXT_PUBLIC_AGENT_SIDECAR_URL
+  const sidecarUrl = getSidecarBaseUrl()
   return sidecarUrl
     ? httpSidecarRuntime(sidecarUrl)
     : stubRuntime

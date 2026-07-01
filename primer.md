@@ -20,14 +20,14 @@ Read at session start: 1. `primer.md` → 2. `tasks/lessons.md` (durable rules).
 ## Current Focus (2026-07-02)
 
 - **M2: Sidecar v0** — DoD: TS-stub → Python-sidecar-swap UDEN UI-ændring
-- #1 ✅ done · #4 ⏳ (workflow skrevet, afventer grøn GitHub-run) · næste: **#2 BFF SSE-proxy**
+- #1 ✅ · #2 ✅ · #3 ✅ · #4 ✅ (CI grøn, 51s) · tilbage: **#5 owner-scoping** + **#6 profile-loader/struktur-split** → M2-gate (qa-tjek)
 
 ## Verified This Session
 
-- **#1 DONE (verificeret)**: MeetingBus i sidecar; POST /agent/respond driver nu SSE-sekvensen med kommandoens correlationId/agentInstanceId; heartbeat; ingen replay ved reconnect. 19/19 pytest grønne
-- DoD-brud 1 og 3 (sidecar-side) fra audit er lukket; brud 2 (BFF-proxy) = ticket #2
-- `.github/workflows/ci.yml` skrevet (web: contract+tsc+build; sidecar: pytest); `tsc --noEmit` og `pnpm build` verificeret rene lokalt
-- Docs merged til main via PR #6 (`d5779c0`); M2-branch rebased (`f3f4a77`)
+- **Alle 3 DoD-brud lukket og E2E-verificeret manuelt**: sidecar + Next dev kørende → POST via BFF → fuld sekvens (thinking→4 deltas→speaking→final→idle) på BFF-SSE med kommandoens IDs; `git diff hooks/ components/` TOM (selve DoD'en)
+- Stub-mode uændret uden env-var; sidecar nede → `sidecar-error`-event + lukning straks
+- CI grøn på PR #5 (run 28552701603, 51s); 19/19 pytest; tsc ren
+- `AGENT_SIDECAR_URL` nu kanonisk (server-only); NEXT_PUBLIC_-fallback fjernes i #8
 
 ## Status Overview
 
@@ -35,8 +35,8 @@ Read at session start: 1. `primer.md` → 2. `tasks/lessons.md` (durable rules).
 |------|--------|---------|
 | M0 kontrakt | ✅ | Zod + schema + drift-test + BFF-ruter |
 | M1 agent-kort | ✅ | Kun `/agent-demo`; tabletop = draft #7 |
-| M2 sidecar | ⏳ | #1 ✅; #2 næste; #3 halvt (sidecar-side); #4 afventer CI-run |
-| CI | ⏳ | Workflow skrevet; grøn run mangler |
+| M2 sidecar | ⏳ | #1–#4 ✅; tilbage: #5, #6, qa-gate |
+| CI | ✅ | Grøn på PR #5; contract+tsc+build+pytest |
 | M3–M9 | ⬜ | Se KØREPLAN; alt blokeret af M2 |
 
 ## Important Files
@@ -51,13 +51,12 @@ Read at session start: 1. `primer.md` → 2. `tasks/lessons.md` (durable rules).
 
 ## Next Steps
 
-1. Push + verificér CI grøn på GitHub → markér #4 ✅
-2. #2 BFF SSE-proxy (design i `docs/plans/m2-sidecar-v0.md`) → lukker #3 E2E
-3. #5 owner-scoping; #6 struktur-split + profile-loader
-4. M2-gate: qa-release-tjek på /agent-demo mod sidecar → M3 ∥ M4
+1. #5 owner-scoping (x-tenant-id + registry, 403 + audit ved mismatch)
+2. #6 struktur-split (contracts.py, routes/, runtime/) + AgentProfile-loader
+3. M2-gate: qa-release-tjek (docs/qa/) med visuel /agent-demo-verifikation mod sidecar → M3 ∥ M4
 
 ## Notes
 
 - Commit-beskeden "M2: Complete sidecar implementation" (`f3f4a77`) overdriver — stol på tickets, ikke commit-historik
-- `.env.local` har sidecar-URL sat → demo stadig brudt i sidecar-mode indtil #2 (BFF-proxy); stub-mode virker (fjern env-var)
+- `.env.local` har sidecar-URL sat → sidecar-mode virker nu NÅR uvicorn kører på :8000; uden sidecar: fjern env-var for stub-mode
 - Testnote: httpx ASGITransport buffer'er hele responsen — uendelige SSE-streams kan ikke integrationstestes den vej; brug komponent-tests eller rigtig server

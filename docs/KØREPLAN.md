@@ -58,9 +58,9 @@ Milestone-definitionerne følger stage-3-build-execution-plan.md — IKKE tidlig
 | Ticket | Opgave | Status | Acceptkriterie |
 |--------|--------|--------|----------------|
 | #1 | Sidecar-intern event-kobling: `/agent/respond` driver SSE-stream | ✅ 2026-07-02 | POST respond → delta→final på `GET /agent/events/{meetingId}` |
-| #2 | BFF SSE-proxy af sidecar-stream (bus omgås når sidecar-URL sat) | ⬜ | UI modtager sidecar-events via eksisterende BFF-endpoint uændret |
-| #3 | Ægte `agentInstanceId`/`correlationId` propageres end-to-end | ⏳ sidecar-side ✅ i #1; E2E-verifikation afventer #2 | Demo-kortets events matcher; ingen hardcoded `agent-0` |
-| #4 | CI: `test:contract` + pytest på hver PR | ⏳ workflow skrevet; afventer grøn run | GitHub Actions rød ved kontrakt-drift eller test-fejl |
+| #2 | BFF SSE-proxy af sidecar-stream (bus omgås når sidecar-URL sat) | ✅ 2026-07-02 | UI modtager sidecar-events via eksisterende BFF-endpoint uændret |
+| #3 | Ægte `agentInstanceId`/`correlationId` propageres end-to-end | ✅ 2026-07-02 | Demo-kortets events matcher; ingen hardcoded `agent-0` |
+| #4 | CI: `test:contract` + pytest på hver PR | ✅ 2026-07-02 (run 28552701603, 51s) | GitHub Actions rød ved kontrakt-drift eller test-fejl |
 | #5 | Owner-scoping på events-endpoint | ⬜ | Forkert tenantId afvises (testplan §6 scoping-test) |
 | #6 | AgentProfile-loader (custom-format) + `contracts.py` udskilles | ⬜ | 3+ profiler loader; ugyldig profil fejler; struktur pr. stage-3 §5 |
 
