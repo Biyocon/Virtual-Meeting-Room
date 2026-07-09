@@ -13,7 +13,35 @@ export interface AgentRuntime {
 
 import { stubRuntime } from "./stub"
 
+function httpSidecarRuntime(baseUrl: string): AgentRuntime {
+  return {
+    async respond(command: AgentCommand) {
+      const res = await fetch(`${baseUrl}/agent/respond`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(command),
+      })
+      if (res.status !== 202) {
+        throw new Error(
+          `Sidecar respond failed: ${res.status} ${await res.text()}`
+        )
+      }
+    },
+  }
+}
+
+// Server-only setting. AGENT_SIDECAR_URL is canonical; the NEXT_PUBLIC_
+// fallback survives until #8 retires it (it needlessly inlines the URL
+// into the client bundle).
+export function getSidecarBaseUrl(): string | undefined {
+  return (
+    process.env.AGENT_SIDECAR_URL ?? process.env.NEXT_PUBLIC_AGENT_SIDECAR_URL
+  )
+}
+
 export function getAgentRuntime(): AgentRuntime {
-  // M2: return httpSidecarRuntime(process.env.AGENT_SIDECAR_URL) instead.
-  return stubRuntime
+  const sidecarUrl = getSidecarBaseUrl()
+  return sidecarUrl
+    ? httpSidecarRuntime(sidecarUrl)
+    : stubRuntime
 }

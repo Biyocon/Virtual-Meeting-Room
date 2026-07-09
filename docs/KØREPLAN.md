@@ -1,6 +1,6 @@
 # Køreplan: Virtual Meeting Room (VMR)
 **Oprettet:** 2026-06-28
-**Opdateret:** 2026-07-01
+**Opdateret:** 2026-07-02
 **Ref:** `docs/PRD.md` | `docs/DEPS.md` | `docs/architecture/stage-3-build-execution-plan.md`
 
 <!--
@@ -18,7 +18,7 @@ Milestone-definitionerne følger stage-3-build-execution-plan.md — IKKE tidlig
 |-----------|------|--------|------|
 | M0 | Agent Event Contract + skeleton | ✅ KOMPLET (commit `93d60f1`, PR #4) | `agent.status` flyder UI ← BFF ← stub via SSE |
 | M1 | Én talende agent-kort | ✅ KOMPLET som isoleret demo (`/agent-demo`) | Kort viser 4 states + streamet tekst + disclosure |
-| M2 | Sidecar v0 (swap uden UI-ændring) | ⏳ AKTIV (~40%) | TS-stub byttes til sidecar UDEN UI-ændring |
+| M2 | Sidecar v0 (swap uden UI-ændring) | ⏳ AKTIV (~75% — DoD-kerne demonstreret 2026-07-02) | TS-stub byttes til sidecar UDEN UI-ændring |
 | M3 | Azure TTS-pipeline | ⬜ PLANLAGT | Agent-svar afspilles som Azure-stemme, p99 < 1.5s |
 | M4 | Whisper STT-stub | ⬜ PLANLAGT | Transskript påvirker agent-svar; usage auditeret |
 | M5 | KnowledgeScope RAG v0 | ⬜ PLANLAGT | Svar indeholder min. 1 citation fra uploadet fil |
@@ -53,14 +53,14 @@ Milestone-definitionerne følger stage-3-build-execution-plan.md — IKKE tidlig
 **Mål:** TS-stub byttes til Python-sidecar uden UI-ændring (DoD stage-3 §4)
 **Blokkeret af:** M0 ✅
 **Blokerer:** M3, M4, M5
-**Status:** Scaffold + Pydantic-spejl + tests findes. DoD IKKE opfyldt — 3 konkrete brud (se tickets #1–#3).
+**Status:** DoD-kernen demonstreret 2026-07-02 (commits `43bff75`, `6cc1787`): kommando-drevet sidecar-stream gennem BFF-proxy, ægte IDs, `git diff hooks/ components/` tom, CI grøn. Tilbage: #5, #6 + qa-gate (#9).
 
 | Ticket | Opgave | Status | Acceptkriterie |
 |--------|--------|--------|----------------|
-| #1 | Sidecar-intern event-kobling: `/agent/respond` driver SSE-stream | ⏳ | POST respond → delta→final på `GET /agent/events/{meetingId}` |
-| #2 | BFF SSE-proxy af sidecar-stream (bus omgås når sidecar-URL sat) | ⬜ | UI modtager sidecar-events via eksisterende BFF-endpoint uændret |
-| #3 | Ægte `agentInstanceId`/`correlationId` propageres end-to-end | ⬜ | Demo-kortets events matcher; ingen hardcoded `agent-0` |
-| #4 | CI: `test:contract` + pytest på hver PR | ⬜ | GitHub Actions rød ved kontrakt-drift eller test-fejl |
+| #1 | Sidecar-intern event-kobling: `/agent/respond` driver SSE-stream | ✅ 2026-07-02 | POST respond → delta→final på `GET /agent/events/{meetingId}` |
+| #2 | BFF SSE-proxy af sidecar-stream (bus omgås når sidecar-URL sat) | ✅ 2026-07-02 | UI modtager sidecar-events via eksisterende BFF-endpoint uændret |
+| #3 | Ægte `agentInstanceId`/`correlationId` propageres end-to-end | ✅ 2026-07-02 | Demo-kortets events matcher; ingen hardcoded `agent-0` |
+| #4 | CI: `test:contract` + pytest på hver PR | ✅ 2026-07-02 (run 28552701603, 51s) | GitHub Actions rød ved kontrakt-drift eller test-fejl |
 | #5 | Owner-scoping på events-endpoint | ⬜ | Forkert tenantId afvises (testplan §6 scoping-test) |
 | #6 | AgentProfile-loader (custom-format) + `contracts.py` udskilles | ⬜ | 3+ profiler loader; ugyldig profil fejler; struktur pr. stage-3 §5 |
 
@@ -121,8 +121,8 @@ Milestone-definitionerne følger stage-3-build-execution-plan.md — IKKE tidlig
 
 ## Tværgående gæld (uafhængig af milestones — ticket #8, drafts)
 
-- `next.config.mjs`: `ignoreBuildErrors` + `ignoreDuringBuilds` fjernes når CI (#4) er grøn
-- `NEXT_PUBLIC_AGENT_SIDECAR_URL` → server-only `AGENT_SIDECAR_URL`
+- `next.config.mjs`: `ignoreBuildErrors` + `ignoreDuringBuilds` — CI er grøn og tsc REN (verificeret 2026-07-02) → kan fjernes i #8 uden fix-arbejde
+- ~~`NEXT_PUBLIC_AGENT_SIDECAR_URL` → server-only `AGENT_SIDECAR_URL`~~ delvist løst i #2 (`AGENT_SIDECAR_URL` kanonisk); NEXT_PUBLIC_-fallback fjernes i #8
 - Pydantic v1-style `class Config` → `model_config = ConfigDict(...)`
 - `package.json` name `my-v0-project` → `virtual-meeting-room`; README udbygget
 - Ingen LICENSE-fil (ADR-0001: blocker før distribution)

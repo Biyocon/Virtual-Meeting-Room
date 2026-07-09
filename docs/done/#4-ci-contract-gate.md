@@ -2,13 +2,14 @@
 id: "#4"
 title: "CI: contract-test + pytest på hver PR"
 milestone: "M2"
-status: active
+status: done
+afsluttet: "2026-07-02"
 prioritet: "P0"
 deps: []
 blocks:
   - "#8"
 oprettet: "2026-07-01"
-sidst_opdateret: "2026-07-01"
+sidst_opdateret: "2026-07-02"
 ---
 
 ## Hvad & Hvorfor
@@ -21,10 +22,10 @@ Enhver PR mod main kører automatisk: TS contract-test, sidecar-pytest, typechec
 
 ## Teknisk scope
 
-- [ ] `.github/workflows/ci.yml`: pnpm install → `pnpm test:contract` → `tsc --noEmit` → `pnpm build`
-- [ ] Python-job: `pip install -e ./sidecar[dev]` → `pytest sidecar/tests`
+- [x] `.github/workflows/ci.yml`: pnpm install → `pnpm test:contract` → `tsc --noEmit` → `pnpm build`
+- [x] Python-job: `pip install -e ./sidecar[dev]` → `pytest sidecar/tests`
 - [ ] Branch protection-note i CONTRIBUTING/README (manuel GitHub-indstilling)
-- [ ] Cache pnpm + pip for hastighed
+- [x] Cache pnpm + pip for hastighed
 
 ## Relevante filer
 
@@ -34,11 +35,13 @@ Enhver PR mod main kører automatisk: TS contract-test, sidecar-pytest, typechec
 
 ## Acceptkriterie
 
-- [ ] CI kører grønt på nuværende branch
+- [x] CI kører grønt på nuværende branch (run 28552701603, 51s)
 - [ ] Bevidst kontrakt-brud (ekstra event-type i schema) → CI rød
-- [ ] pytest-fejl → CI rød
-- [ ] Køretid < 5 min
+- [x] pytest-fejl → CI rød (job faila på exit-kode)
+- [x] Køretid < 5 min (51s)
 
 ## Blocker / noter
 
 2026-07-01: OBS — `tsc --noEmit` kan afsløre eksisterende typefejl skjult af `ignoreBuildErrors: true`. Fix dem her, eller start med typecheck som non-blocking og stram til i #8.
+
+2026-07-02: DONE. Grøn på PR #5. tsc --noEmit viste sig REN lokalt — ignoreBuildErrors kan fjernes i #8 uden fix-arbejde. Ikke-verificeret: bevidst kontrakt-brud → rød (drift-guard-testen selv er dog dækket af sine egne valid/invalid-samples). Branch protection = manuel GitHub-indstilling, udestår (note i #8).

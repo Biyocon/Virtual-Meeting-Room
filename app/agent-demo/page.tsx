@@ -20,7 +20,7 @@ const SCOPE = {
 }
 
 export default function AgentDemoPage() {
-  const view = useAgentEvents(SCOPE.meetingId, SCOPE.agentInstanceId)
+  const view = useAgentEvents(SCOPE.meetingId, SCOPE.tenantId, SCOPE.agentInstanceId)
 
   async function handleRespond() {
     const command: AgentCommand = {

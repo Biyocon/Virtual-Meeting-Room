@@ -6,6 +6,7 @@ import { NextResponse } from "next/server"
 import { AgentCommand } from "@/lib/agent/contract"
 import { getAgentRuntime } from "@/lib/agent/sidecarClient"
 import { emitAudit } from "@/lib/agent/audit"
+import { claimOrCheckTenant, TenantMismatchError } from "@/lib/agent/tenantRegistry"
 
 // Guardrail: Node.js runtime (not Edge) — the in-memory bus + SSE need a single
 // long-lived Node process.
@@ -25,7 +26,18 @@ export async function POST(req: Request) {
   }
   const command = parsed.data
 
-  // Owner-scoping is enforced by the contract (tenantId + meetingId required).
+  // Owner-scoping (#5): the contract requires tenantId + meetingId to be
+  // present; this claims/checks that meetingId actually belongs to that
+  // tenantId (mirrors sidecar/src/agent_sidecar/main.py _claim_or_check_tenant).
+  try {
+    claimOrCheckTenant(command.scope.meetingId, command.scope.tenantId)
+  } catch (err) {
+    if (err instanceof TenantMismatchError) {
+      return NextResponse.json({ error: "tenant_mismatch" }, { status: 403 })
+    }
+    throw err
+  }
+
   emitAudit(command.scope, command.scope.agentInstanceId ?? "system", command.type, command.correlationId)
 
   await getAgentRuntime().respond(command)
