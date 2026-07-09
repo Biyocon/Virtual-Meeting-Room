@@ -19,13 +19,18 @@ export type AgentView = {
 
 const INITIAL: AgentView = { status: "idle", streamingText: "", finalText: null, connected: false }
 
-export function useAgentEvents(meetingId: string, agentInstanceId?: string): AgentView {
+export function useAgentEvents(meetingId: string, tenantId: string, agentInstanceId?: string): AgentView {
   const [view, setView] = useState<AgentView>(INITIAL)
   const seenFinals = useRef<Set<string>>(new Set())
 
   useEffect(() => {
-    if (!meetingId) return
-    const source = new EventSource(`/api/agent/events/${encodeURIComponent(meetingId)}`)
+    if (!meetingId || !tenantId) return
+    // tenantId as a query param (#5): EventSource can't set custom headers,
+    // so this is how the BFF learns which tenant is asking (see
+    // app/api/agent/events/[meetingId]/route.ts).
+    const source = new EventSource(
+      `/api/agent/events/${encodeURIComponent(meetingId)}?tenantId=${encodeURIComponent(tenantId)}`,
+    )
 
     source.addEventListener("ready", () => setView((v) => ({ ...v, connected: true })))
 
@@ -60,7 +65,7 @@ export function useAgentEvents(meetingId: string, agentInstanceId?: string): Age
     source.onerror = () => setView((v) => ({ ...v, connected: false }))
 
     return () => source.close()
-  }, [meetingId, agentInstanceId])
+  }, [meetingId, tenantId, agentInstanceId])
 
   return view
 }

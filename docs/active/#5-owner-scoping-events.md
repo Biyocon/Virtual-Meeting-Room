@@ -2,13 +2,13 @@
 id: "#5"
 title: "Owner-scoping på events-endpoints"
 milestone: "M2"
-status: active
+status: done
 prioritet: "P1"
 deps:
   - "#2"
 blocks: []
 oprettet: "2026-07-01"
-sidst_opdateret: "2026-07-01"
+sidst_opdateret: "2026-07-09"
 ---
 
 ## Hvad & Hvorfor
@@ -21,26 +21,34 @@ Events- og respond-endpoints kræver tenant-kontekst; forkert/manglende tenantId
 
 ## Teknisk scope
 
-- [ ] Definér MVP-scoping: `x-tenant-id` header valideres mod meeting-registrering (in-memory registry i sidecar)
-- [ ] BFF videresender tenant-kontekst til sidecar; afviser selv ved mismatch
-- [ ] Sidecar: 403 ved ukendt meetingId/tenantId-kombination
-- [ ] `audit.event` ved afviste forsøg
-- [ ] Tests: forkert tenant → 403 (pytest + TS-integrationstest)
+- [x] Definér MVP-scoping: `x-tenant-id` header valideres mod meeting-registrering (in-memory registry i sidecar)
+- [x] BFF videresender tenant-kontekst til sidecar; afviser selv ved mismatch
+- [x] Sidecar: 403 ved ukendt meetingId/tenantId-kombination
+- [x] `audit.event` ved afviste forsøg
+- [x] Tests: forkert tenant → 403 (pytest + TS-integrationstest)
 
 ## Relevante filer
 
 - `app/api/agent/events/[meetingId]/route.ts`
 - `app/api/agent/respond/route.ts`
-- `sidecar/src/agent_sidecar/main.py`
+- `lib/agent/tenantRegistry.ts` (ny — BFF-side spejl)
+- `sidecar/src/agent_sidecar/runtime/state.py` (tenant registry)
+- `sidecar/src/agent_sidecar/routes/agent.py`
 - `lib/agent/contract.ts` (OwnerScope — tenantId/meetingId er allerede påkrævet i kontrakten)
 
 ## Acceptkriterie
 
-- [ ] Korrekt tenant: fuld funktionalitet uændret
-- [ ] Forkert tenantId → 403 + audit.event
-- [ ] Manglende tenant-header → 403
-- [ ] Scoping-test fra testplan §6 grøn i CI
+- [x] Korrekt tenant: fuld funktionalitet uændret
+- [x] Forkert tenantId → 403 + audit.event
+- [x] Manglende tenant-header → 403
+- [x] Scoping-test fra testplan §6 grøn i CI
+
+## Verifikation
+
+- `pytest` i `sidecar/`: **40 passed** (2026-07-09)
+- Manuelt curl-E2E: korrekt/forkert/manglende tenant på begge endpoints, uklaimet meeting
+- `npx tsc --noEmit`: OK
 
 ## Blocker / noter
 
-2026-07-01: Bevidst SIMPEL mekanisme — Entra ID kommer først i M8. Undgå at bygge auth-system her.
+2026-07-09: #5 implementeret, testet og bevaret gennem #6-struktursplittet. Bemærk: Next.js dev-mode hot-reload nulstiller modul-niveau singletons; BFF-registry bruger `globalThis`-backing for at overleve Fast Refresh.

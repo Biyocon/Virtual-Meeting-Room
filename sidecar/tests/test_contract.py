@@ -1,15 +1,11 @@
 """Contract validation: Python models ↔ TS JSON schema."""
 
 import json
-import sys
 from pathlib import Path
 
 import pytest
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from agent_sidecar.main import (
+from agent_sidecar.contracts import (
     AgentAddCommand,
     AgentRespondCommand,
     AgentStatusEvent,
@@ -17,6 +13,8 @@ from agent_sidecar.main import (
     AgentMessageFinalEvent,
     AuditEventModel,
     OwnerScope,
+    AgentProfile,
+    MeetingAgentInstance,
 )
 
 
@@ -143,3 +141,20 @@ class TestContractEnvelopeValidation:
                 correlationId="",  # Empty
                 payload={"status": "idle"},
             )
+
+
+class TestRuntimeEntities:
+    """AgentProfile and MeetingAgentInstance shapes."""
+
+    def test_agent_profile_requires_id_and_name(self):
+        with pytest.raises(ValueError):
+            AgentProfile(name="Test", role="role")
+
+    def test_agent_profile_accepts_minimal_valid_data(self):
+        profile = AgentProfile(id="p1", name="Test", role="role")
+        assert profile.id == "p1"
+        assert profile.accentColor == "#004E51"
+
+    def test_meeting_agent_instance_requires_scope(self):
+        with pytest.raises(ValueError):
+            MeetingAgentInstance(agentInstanceId="ai-1", agentProfileId="p1", role="role")

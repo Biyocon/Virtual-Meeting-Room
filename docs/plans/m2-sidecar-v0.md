@@ -1,7 +1,7 @@
 # Plan: M2 Sidecar v0 — swap uden UI-ændring
 **Oprettet:** 2026-07-01
 **Ref:** `docs/active/#1` `#2` `#3` | `docs/PRD.md §4 P0` | `docs/architecture/stage-3-build-execution-plan.md` §4–§5
-**Status:** IMPLEMENTERET (trin 1–4, 2026-07-02) — trin 5–6 (#5, #6) + gate udestår
+**Status:** IMPLEMENTERET (trin 1–6, 2026-07-09) — kun M2-gate udestår
 
 <!--
 Skrives ÉN GANG, læses FØR implementering starter.
@@ -94,5 +94,63 @@ class MeetingBus:
 - [x] `/agent-demo`-endpoints kører fuld sekvens mod sidecar (curl-E2E); `git diff hooks/ components/` tom
 - [x] Stub-mode (uden env-var) uændret
 - [x] `pnpm test:contract` + pytest grønne i CI
-- [ ] Scoping-test: forkert tenantId → 403
-- [ ] `docs/qa/`-release-tjek udfyldt og GODKENDT
+- [x] Scoping-test: forkert tenantId → 403 (2026-07-09, #5 — se note nedenfor)
+- [x] `docs/qa/`-release-tjek udfyldt og GODKENDT (2026-07-09, efter fix af payload.agentInstanceId-bug — se qa/release-2026-07-09.md)
+
+## #6 Struktur-split + AgentProfile-loader — implementeringsnote (2026-07-09)
+
+`main.py` er split ud efter stage-3 §5:
+- `contracts.py` — alle Pydantic-modeller inkl. `AgentProfile` og `MeetingAgentInstance`
+- `routes/agent.py` — `/health`, `/agent/respond`, `/agent/events/{meeting_id}`
+- `runtime/state.py` — `MeetingBus` + tenant registry
+- `runtime/profile_loader.py` — YAML-loader til `sidecar/profiles/*.yaml`
+- `runtime/instance.py` — `MeetingAgentInstance`-livscyklus
+- `audit.py` — `audit.event`/`scope/denied` helpers
+- `main.py` — FastAPI app-factory + lifespan, eager profile-loading
+
+Profiler: `pm`, `analyst`, `facilitator` (navn, rolle, accentColor, voiceProfile-stub,
+knowledgeScope-stub, skills, systemPrompt, model). Loader fejler hurtigt ved opstart med
+klar besked ved ugyldig YAML/duplicate ID/manglende felter.
+
+`AgentCommand`-union er ændret fra manuel `if/elif`-parse til en `_parse_command()`
+hjælper; alle Pydantic-modeller bruger nu `model_config = ConfigDict(extra="forbid")`.
+
+Tests: `sys.path.insert` fjernet overalt; imports bruger installeret pakke
+(`agent_sidecar.*`). Nye tests: `test_profiles.py` (loader + instance-lifecycle).
+
+Verifikation: 41/41 pytest grønne, `pnpm test:contract` OK, `npx tsc --noEmit` OK.
+
+**QA-fund og fix (2026-07-09):** Uafhængig manuel E2E afslørede, at `agent.respond`
+med `scope.agentInstanceId` udeladt/afvigende fra `payload.agentInstanceId` (kontrakt-
+lovligt) fik `run_respond_sequence` til at crashe stille med `InstanceNotFound`.
+Rodårsag: `agent_respond()` brugte `scope.agentInstanceId` til fallback-instans-opret,
+men `run_respond_sequence()` brugte `payload.agentInstanceId`. Fix: payload bruges nu
+konsekvent som autoritativ nøgle. Ny regressionstest:
+`test_agent_respond_payload_instance_id_without_scope`. Fuld rapport i
+`docs/qa/release-2026-07-09.md`.
+
+## #5 Owner-scoping — implementeringsnote (2026-07-09)
+
+Sidecar: `_tenant_registry: dict[meeting_id] -> tenant_id`, `POST /agent/respond`
+claimer/tjekker (`_claim_or_check_tenant`), `GET /agent/events/{meeting_id}` kræver
+`x-tenant-id`-header og tjekker read-only (`_check_tenant_readonly` — claimer aldrig,
+så en subscriber ikke kan "squatte" et meetingId før ejeren har svaret første gang).
+Mismatch/manglende header → 403 + `audit.event` (`action=scope/denied`). 26/26 pytest grønne.
+
+BFF: `lib/agent/tenantRegistry.ts` spejler samme claim/check-logik. `respond/route.ts`
+tjekker før den kalder runtime; `events/[meetingId]/route.ts` læser `tenantId` som
+query-param (EventSource kan ikke sætte custom headers) og sender den videre som
+`x-tenant-id` til sidecaren. `useAgentEvents`/`/agent-demo` opdateret til at sende
+`tenantId` med.
+
+**Fund undervejs:** et almindeligt modul-niveau `Map` blev nulstillet af Next.js
+dev-mode hot-reload/on-demand-kompilering på tværs af routes (verificeret med curl:
+`size: 0` fra events-routen, selvom respond-routen lige havde registreret samme
+meetingId). Rettet med `globalThis`-backed singleton (samme mønster som fx
+Prisma-client-singletons) — kun et dev-mode-fænomen, men værd at vide, hvis `bus.ts`
+(samme modul-singleton-mønster, ikke rørt her) nogensinde viser lignende symptomer.
+
+E2E verificeret manuelt (curl, sidecar+Next dev kørende): korrekt tenant → 202/200,
+forkert tenant på respond → 403, events uden `tenantId` → 403, events med forkert
+`tenantId` → 403 (afvist af BFF FØR sidecar-kald), events på uklaimet meeting → 200
+(intet at lække).

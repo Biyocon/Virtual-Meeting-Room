@@ -5,8 +5,10 @@
 // through this same endpoint — same path, same wire format, no UI change.
 // BFF-generated events (audit from the respond route) are merged in both modes.
 
+import { NextResponse } from "next/server"
 import { subscribe } from "@/lib/agent/bus"
 import { getSidecarBaseUrl } from "@/lib/agent/sidecarClient"
+import { checkTenantReadOnly, TenantMismatchError } from "@/lib/agent/tenantRegistry"
 
 // Guardrail: Node.js runtime (not Edge) for a long-lived SSE connection.
 export const runtime = "nodejs"
@@ -17,6 +19,7 @@ export const dynamic = "force-dynamic"
 async function proxySidecarStream(
   baseUrl: string,
   meetingId: string,
+  tenantId: string,
   send: (data: string) => void,
   signal: AbortSignal,
 ) {
@@ -24,7 +27,7 @@ async function proxySidecarStream(
     `${baseUrl}/agent/events/${encodeURIComponent(meetingId)}`,
     {
       signal,
-      headers: { Accept: "text/event-stream" },
+      headers: { Accept: "text/event-stream", "x-tenant-id": tenantId },
       cache: "no-store",
     },
   )
@@ -52,6 +55,23 @@ export async function GET(req: Request, { params }: { params: Promise<{ meetingI
   const { meetingId } = await params
   const encoder = new TextEncoder()
   const sidecarUrl = getSidecarBaseUrl()
+
+  // Owner-scoping (#5): EventSource can't set custom headers, so the client
+  // passes tenantId as a query param; the BFF validates it itself (defense
+  // in depth) before ever forwarding, then re-sends it as x-tenant-id to the
+  // sidecar (mirrors sidecar/src/agent_sidecar/main.py agent_events_stream).
+  const tenantId = new URL(req.url).searchParams.get("tenantId")
+  if (!tenantId) {
+    return NextResponse.json({ error: "missing_tenant_id" }, { status: 403 })
+  }
+  try {
+    checkTenantReadOnly(meetingId, tenantId)
+  } catch (err) {
+    if (err instanceof TenantMismatchError) {
+      return NextResponse.json({ error: "tenant_mismatch" }, { status: 403 })
+    }
+    throw err
+  }
 
   const stream = new ReadableStream({
     start(controller) {
@@ -90,7 +110,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ meetingI
       }
 
       if (sidecarUrl) {
-        proxySidecarStream(sidecarUrl, meetingId, send, req.signal).catch(
+        proxySidecarStream(sidecarUrl, meetingId, tenantId, send, req.signal).catch(
           (err: unknown) => {
             // Sidecar unreachable or stream broke: fail fast and visibly —
             // the client's EventSource reconnects per the retry directive.
